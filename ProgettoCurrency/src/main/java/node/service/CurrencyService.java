@@ -2,19 +2,20 @@ package node.service;
 
 import java.util.List;
 
-import node.model.PairDto;
-import node.model.RuoloDto;
+import node.model.CurrencyDto;
 
-public interface RuoloService {
+public interface CurrencyService {
 	
-	public List<RuoloDto> getAllRuoli();
+	
 
 	public String chiamaServizioEsterno() throws Exception;
 
-	public List<PairDto> convertiLoScaricoDatiInJava() throws Exception;
+	public List<CurrencyDto> convertiLoScaricoDatiInJava() throws Exception;
 
-	public List<PairDto> convertiLoScaricoDatiInJavaESalvaloNelDB() throws Exception;
+	public List<CurrencyDto> convertiLoScaricoDatiInJavaESalvaloNelDB() throws Exception;
 
-	public List<PairDto> selectPairs(); 
+	public List<CurrencyDto> getAllCurrency(); 
+	
+	public List<CurrencyDto> getByCurrency(String pair1);
 	
 }

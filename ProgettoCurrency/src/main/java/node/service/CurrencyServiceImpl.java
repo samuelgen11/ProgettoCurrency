@@ -2,76 +2,61 @@ package node.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
-import org.jboss.resteasy.client.ClientRequest;
-import org.jboss.resteasy.client.ClientResponse;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import org.jboss.resteasy.client.jaxrs.ResteasyClient;
+import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import org.jboss.resteasy.client.jaxrs.ResteasyWebTarget;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import node.entity.PairEntity;
-import node.entity.RuoloEntity;
-import node.model.PairDto;
-import node.model.RuoloDto;
-import node.repository.PairRepository;
-import node.repository.RuoliRepository;
+import node.entity.CurrencyEntity;
+import node.model.CurrencyDto;
+import node.repository.CurrencyRepository;
 
 @Service
-public class RuoloServiceImpl implements RuoloService{
+public class CurrencyServiceImpl implements CurrencyService{
+	
+	
 	
 	@Autowired
-	public RuoliRepository ruoliRepository;
+	public CurrencyRepository currencyRepository;
 	
-	@Autowired
-	public PairRepository pairRepository;
 	
-	public List<RuoloDto> getAllRuoli() {
-		
-		// JEE STYLE CON HIBERNATE E NAMEDQUERY
-		//em.createNamedQuery(Padrone.NAMED_QUERY_ALL, Padrone.class)
-		//.getResultList();
-		
-		// SPRING REPOSITORY
-		List<RuoloEntity> listRuoloEntity = ruoliRepository.findAll();
-		
-		return listRuoloEntity.stream()
-				.map(entity -> {
-					RuoloDto dto = new RuoloDto();
-					dto.setDescrizioneRuolo(entity.getDescrizioneRuolo());
-					dto.setId(entity.getId());
-					return dto;
-				})
-				.collect(Collectors.toList());
-	}
 	
-	public void saveRuolo(RuoloEntity ruolo) {
-		ruoliRepository.save(ruolo);
-	}
 
 	@Override
 	public String chiamaServizioEsterno() throws Exception {
 		// come faccio a fare una chiamata Rest dall'interno della mia applicazione
-		//ResteasyClient client = new ResteasyClientBuilder().build();
-		//client.target("https://cex.io/api/tickers/EUR");
-		
-		// avvia client per l'esecuzione di una chiamata REST (GET)
-		ClientRequest request = new ClientRequest("https://cex.io/api/tickers/EUR");
-		// avvia la chiamata REST
-		ClientResponse<String> response = request.get(String.class);
-		// prendimi il contenuto della risposta
-		String responseString = response.getEntity();
-		// ritorna il contenuto della risposta
+		ResteasyClient client = new ResteasyClientBuilder().build();
+		ResteasyWebTarget target = client.target("https://cex.io/api/tickers/EUR");
+		Response response = target.request(MediaType.APPLICATION_JSON).get();
+		String responseString = response.readEntity(String.class);
+		System.out.println(responseString);
 		return responseString;
-		
+//		// avvia client per l'esecuzione di una chiamata REST (GET)
+//		ClientRequest request = new ClientRequest("https://cex.io/api/tickers/EUR");
+//		// avvia la chiamata REST
+//		ClientResponse<String> response = request.get(String.class);
+//		// prendimi il contenuto della risposta
+//		String responseString = response.getEntity();
+//		// ritorna il contenuto della risposta
+//		return responseString;
+//		
 	}
 
 	@Override
-	public List<PairDto> convertiLoScaricoDatiInJava() throws Exception {
+	public List<CurrencyDto> convertiLoScaricoDatiInJava() throws Exception {
 		String response = chiamaServizioEsterno();
 		
+				
 		// main thread
 		// si ma come facciamo a prendere solo l'elemento DATA
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -83,74 +68,100 @@ public class RuoloServiceImpl implements RuoloService{
 			System.out.println(dataRow);
 		}*/
 		
-		final List<PairDto> listPairDto = new ArrayList<PairDto>();
+		final List<CurrencyDto> listCurrencyDto = new ArrayList<>();
 		
 		// ogni riga del json
 		jsonNode.get("data").forEach(dataRow -> {
-			
+			Random i = new Random();
+			int x = i.nextInt();
 			// secondo thread
-			String pairEstratto = dataRow.get("pair").asText();
-			
+			String[] pairEstratto = dataRow.get("pair").asText().split(":");
+			String pair1 = pairEstratto[0];
+			String pair2 = pairEstratto[1];
+			Long timestampEstratto = dataRow.get("timestamp").asLong();
+			Double lastEstratto = dataRow.get("last").asDouble();
 			// crea classe java
-			PairDto pairDto = new PairDto();
-			pairDto.setPair(pairEstratto);
-			
+			CurrencyDto currencyDto = new CurrencyDto();
+			currencyDto.setId(x);
+			currencyDto.setPair1(pair1);
+			currencyDto.setPair2(pair2);
+			currencyDto.setTimestamp(timestampEstratto);
+			currencyDto.setLast(lastEstratto);
 			// aggiungendo elemento
-			listPairDto.add(pairDto);
+			listCurrencyDto.add(currencyDto);
 		});
 		
-		return listPairDto;
+	return listCurrencyDto;
 	}
 
 	@Override
-	public List<PairDto> convertiLoScaricoDatiInJavaESalvaloNelDB() throws Exception {
-		List<PairDto> result = convertiLoScaricoDatiInJava();
+	public List<CurrencyDto> convertiLoScaricoDatiInJavaESalvaloNelDB() throws Exception {
+		List<CurrencyDto> result = convertiLoScaricoDatiInJava();
 		
 		// si ma come si salva sul db? 
 		// convertire in entita
-		List<PairEntity> entityResult = result.stream().map(
+		List<CurrencyEntity> entityResult = result.stream().map(
 			// per ogni elemento del mio result, tu devi fare una funzione!
-			pairDtoCheStoScorrendo -> {
+			currencyDtoCheStoScorrendo -> {
 				// questa è la funzione!!
-				PairEntity pairEntity = new PairEntity();
-				pairEntity.setPairValue(pairDtoCheStoScorrendo.getPair());
-				return pairEntity;
+				CurrencyEntity currencyEntity = new CurrencyEntity();
+				currencyEntity.setId(currencyDtoCheStoScorrendo.getId());
+				currencyEntity.setPair1(currencyDtoCheStoScorrendo.getPair1());
+				currencyEntity.setPair2(currencyDtoCheStoScorrendo.getPair2());
+				currencyEntity.setTimestamp(currencyDtoCheStoScorrendo.getTimestamp());
+				currencyEntity.setLast(currencyDtoCheStoScorrendo.getLast());
+				return currencyEntity;
 			}
 		).collect(Collectors.toList());
 		
-		// java7
-		/*
-		 * -- inizializza la variable entity
-		 * -- foreach di resultDTO (map)
-		 * creami un nuovo entity
-		 * riempimi il nuovo entity
-		 * -- assegna l'entita tramite listEntity.add() (map)
-		 * 
-		 */
 		
-		// salvare le entita!
-		pairRepository.saveAll(entityResult);
+		currencyRepository.saveAll(entityResult);
 		return result;
 	}
 
 	@Override
-	public List<PairDto> selectPairs() {
+	public List<CurrencyDto> getAllCurrency() {
 		// scarica dati
-		List<PairEntity> listEntities = pairRepository.findAll();
+		List<CurrencyEntity> listEntities = currencyRepository.findAll();
 		
 		// trasforma da entity a DTO
-		List<PairDto> listPairDto = listEntities.stream().map(
+		return listEntities.stream().map(
 			// scorro ogni elemento (pairEntity)
-			pairEntity -> {
+			currencyEntity -> {
 				// convert il pairEntity in DTO
-				PairDto pairDto = new PairDto();
-				pairDto.setPair(pairEntity.getPairValue());
+				CurrencyDto pairDto = new CurrencyDto();
+				pairDto.setId(currencyEntity.getId());
+				pairDto.setPair1(currencyEntity.getPair1());
+				pairDto.setPair2(currencyEntity.getPair2());
+				pairDto.setTimestamp(currencyEntity.getTimestamp());
+				pairDto.setLast(currencyEntity.getLast());
 				return pairDto;
 			}
 			// lo trasforma da stream a collection
 		).collect(Collectors.toList());
 		
-		return listPairDto;
+	
 	}
 	
-}
+	public List<CurrencyDto> getByCurrency(String pair1){
+		List<CurrencyEntity> lista = currencyRepository.findByPair1(pair1);
+		return lista.stream().map(
+				// scorro ogni elemento (pairEntity)
+				currencyEntity -> {
+					// convert il pairEntity in DTO
+					CurrencyDto pairDto = new CurrencyDto();
+					pairDto.setId(currencyEntity.getId());
+					pairDto.setPair1(currencyEntity.getPair1());
+					pairDto.setPair2(currencyEntity.getPair2());
+					pairDto.setTimestamp(currencyEntity.getTimestamp());
+					pairDto.setLast(currencyEntity.getLast());
+					return pairDto;
+				}
+				// lo trasforma da stream a collection
+			).collect(Collectors.toList());
+			
+		
+		}
+		
+	}
+
